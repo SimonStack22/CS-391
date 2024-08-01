@@ -1,47 +1,26 @@
-from flask import Flask, request, jsonify, render_template
-from youtube_transcript_api import YouTubeTranscriptApi
 from openai import OpenAI
-import config  # Make sure you have your OPENAI_API_KEY in a config file or environment variable
+import config
 
-app = Flask(__name__)
+client = OpenAI(api_key=config.OPENAI_API_KEY)
 
-client = OpenAI(api_key = config.OPENAI_API_KEY)
+# Conversation as a list of messages
+messages = [
+    {"role": "system", "content": "You are creating 10 headlines for a movie review in the style of Siskel & Ebert for your favorite movie."},
+    {"role": "user", "content": "Wall-E"},
+    {"role": "assistant", "content": "1. 'Wall-E: An Animated Masterpiece That Shines with Heart and Humor'\n2. 'Wall-E: Pixar’s Daring Dance with Dystopia and Devotion'\n3. 'A Love Story for the Ages: Wall-E Transcends Genre and Expectation'\n4. 'Silent Splendor: Wall-E’s Dialogue-Free Brilliance Speaks Volumes'\n5. 'Wall-E: A Visual Marvel and Cautionary Tale Wrapped in Romance'\n6. 'Pixar’s Wall-E: An Unlikely Hero with an Unforgettable Journey'\n7. 'Wall-E: Effortlessly Blending Environmental Ethics with Enchantment'\n8. 'Rusty Robot, Golden Moments: Wall-E’s Heartfelt Adventure'\n9. 'Wall-E: Where Technology Meets Tenderness in Pixar’s Bold Vision'\n10. 'Wall-E: A Stellar Exploration of Love, Loneliness, and Liberation'"},
+    {"role": "user", "content": "Print the output in JSON"},
+    {"role": "assistant", "content": "```json\n{\n  \"headlines\": [\n    \"Wall-E: An Animated Masterpiece That Shines with Heart and Humor\",\n    \"Wall-E: Pixar’s Daring Dance with Dystopia and Devotion\",\n    \"A Love Story for the Ages: Wall-E Transcends Genre and Expectation\",\n    \"Silent Splendor: Wall-E’s Dialogue-Free Brilliance Speaks Volumes\",\n    \"Wall-E: A Visual Marvel and Cautionary Tale Wrapped in Romance\",\n    \"Pixar’s Wall-E: An Unlikely Hero with an Unforgettable Journey\",\n    \"Wall-E: Effortlessly Blending Environmental Ethics with Enchantment\",\n    \"Rusty Robot, Golden Moments: Wall-E’s Heartfelt Adventure\",\n    \"Wall-E: Where Technology Meets Tenderness in Pixar’s Bold Vision\",\n    \"Wall-E: A Stellar Exploration of Love, Loneliness, and Liberation\"\n  ]\n}\n```"}
+]
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=messages,
+    temperature=1,
+    max_tokens=256,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0
+)
 
-@app.route('/summarize', methods=['POST'])
-def summarize():
-    url = request.form['url']
-    video_id = url.split('v=')[-1]
-
-    try:
-        # Download the transcript from the YouTube video
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        transcript = transcript_list.find_generated_transcript(['en']).fetch()
-
-        # Extract and concatenate all text elements
-        concatenated_text = " ".join(item['text'] for item in transcript)
-
-        # Call the OpenAI ChatCompletion endpoint, with the ChatGPT model
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Summarize the following text."},
-                {"role": "assistant", "content": "Yes."},
-                {"role": "user", "content": concatenated_text}
-            ]
-        )
-
-        summary = response.choices[0].message['content']
-        return jsonify({'summary': summary})
-
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
+# Output the JSON response
+print(response.choices[0].message.content)
